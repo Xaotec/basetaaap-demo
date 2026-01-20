@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Zap, Trophy, Gem, Star, TrendingUp, Battery, Award } from 'lucide-react';
+import { Zap, Trophy, Sparkles, Star, TrendingUp, Battery, Award, Cloud, CloudRain, Sun, Moon } from 'lucide-react';
 
 const ARTIFACT_LEVELS = [10, 20, 50, 100];
 const CHECKPOINT_INTERVAL = 5;
 const MAX_ENERGY = 1000;
-const ENERGY_RECHARGE_RATE = 1; // per second
-const COMBO_TIMEOUT = 1000; // ms
+const ENERGY_RECHARGE_RATE = 1;
+const COMBO_TIMEOUT = 1000;
 
 const BaseClicker = () => {
   const [score, setScore] = useState(0);
@@ -20,13 +20,12 @@ const BaseClicker = () => {
   const [newArtifact, setNewArtifact] = useState(null);
   const [showCheckpointModal, setShowCheckpointModal] = useState(false);
   const [clickAnimation, setClickAnimation] = useState([]);
+  const [particles, setParticles] = useState([]);
 
-  // Calculate required score for next level
   const getRequiredScore = (lvl) => Math.floor(100 * Math.pow(1.5, lvl - 1));
   const requiredScore = getRequiredScore(level);
   const progress = (score / requiredScore) * 100;
 
-  // Energy recharge
   useEffect(() => {
     const interval = setInterval(() => {
       setEnergy(prev => Math.min(prev + ENERGY_RECHARGE_RATE, MAX_ENERGY));
@@ -34,24 +33,19 @@ const BaseClicker = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Combo reset
   useEffect(() => {
     if (combo > 0) {
-      const timeout = setTimeout(() => {
-        setCombo(0);
-      }, COMBO_TIMEOUT);
+      const timeout = setTimeout(() => setCombo(0), COMBO_TIMEOUT);
       return () => clearTimeout(timeout);
     }
   }, [combo, lastTapTime]);
 
-  // Level up check
   useEffect(() => {
     if (score >= requiredScore) {
       const newLevel = level + 1;
       setLevel(newLevel);
       setScore(score - requiredScore);
 
-      // Check for artifact
       if (ARTIFACT_LEVELS.includes(newLevel)) {
         const artifact = {
           level: newLevel,
@@ -65,7 +59,6 @@ const BaseClicker = () => {
         setTapPower(prev => prev + artifact.boost);
       }
 
-      // Check for checkpoint
       if (newLevel % CHECKPOINT_INTERVAL === 0) {
         setShowCheckpointModal(true);
       }
@@ -78,12 +71,11 @@ const BaseClicker = () => {
     const now = Date.now();
     const timeSinceLastTap = now - lastTapTime;
     
-    // Combo system
     let comboMultiplier = 1;
     if (timeSinceLastTap < COMBO_TIMEOUT) {
       const newCombo = combo + 1;
       setCombo(newCombo);
-      comboMultiplier = 1 + (Math.min(newCombo, 50) * 0.02); // Max 2x at 50 combo
+      comboMultiplier = 1 + (Math.min(newCombo, 50) * 0.02);
     } else {
       setCombo(1);
     }
@@ -94,7 +86,6 @@ const BaseClicker = () => {
     setScore(prev => prev + earnedPoints);
     setEnergy(prev => prev - tapPower);
 
-    // Click animation
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -104,217 +95,345 @@ const BaseClicker = () => {
     setTimeout(() => {
       setClickAnimation(prev => prev.filter(anim => anim.id !== id));
     }, 1000);
+
+    // Создаем частицы
+    for (let i = 0; i < 5; i++) {
+      const particleId = Date.now() + i;
+      setParticles(prev => [...prev, {
+        id: particleId,
+        x: x + (Math.random() - 0.5) * 100,
+        y: y + (Math.random() - 0.5) * 100
+      }]);
+      setTimeout(() => {
+        setParticles(prev => prev.filter(p => p.id !== particleId));
+      }, 800);
+    }
   };
 
   const mintCheckpoint = () => {
-    const checkpoint = {
-      level,
-      timestamp: Date.now(),
-      score: score
-    };
+    const checkpoint = { level, timestamp: Date.now(), score };
     setCheckpoints([...checkpoints, checkpoint]);
     setShowCheckpointModal(false);
-    // Here would be the actual blockchain transaction
     alert('🎉 Checkpoint minted on Base! (Gas: ~$0.01)');
   };
 
   const getRarityColor = (rarity) => {
     const colors = {
-      uncommon: 'text-green-400',
-      rare: 'text-blue-400',
-      epic: 'text-purple-400',
-      legendary: 'text-yellow-400'
+      uncommon: 'from-emerald-400 to-green-300',
+      rare: 'from-sky-400 to-blue-300',
+      epic: 'from-violet-400 to-purple-300',
+      legendary: 'from-amber-400 to-yellow-300'
     };
-    return colors[rarity] || 'text-gray-400';
+    return colors[rarity] || 'from-gray-400 to-gray-300';
+  };
+
+  const getRarityGlow = (rarity) => {
+    const glows = {
+      uncommon: 'shadow-[0_0_20px_rgba(52,211,153,0.5)]',
+      rare: 'shadow-[0_0_20px_rgba(56,189,248,0.5)]',
+      epic: 'shadow-[0_0_20px_rgba(167,139,250,0.5)]',
+      legendary: 'shadow-[0_0_30px_rgba(251,191,36,0.7)]'
+    };
+    return glows[rarity] || '';
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-black text-white p-4">
-      {/* Header Stats */}
-      <div className="max-w-4xl mx-auto mb-6">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-white/10 backdrop-blur rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Trophy className="w-4 h-4 text-yellow-400" />
-              <span className="text-xs text-gray-300">Level</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-indigo-950 text-white p-4 font-sans overflow-hidden relative">
+      {/* Animated Background */}
+      <div className="fixed inset-0 opacity-20">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500 rounded-full filter blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500 rounded-full filter blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-pink-500 rounded-full filter blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+      </div>
+
+      {/* Content */}
+      <div className="relative z-10 max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-black mb-2 bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent tracking-tight">
+            BASE CLOUD
+          </h1>
+          <p className="text-slate-400 text-sm tracking-widest">TAP TO ASCEND</p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition"></div>
+            <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-slate-400 text-sm font-medium">LEVEL</span>
+                </div>
+                <div className="text-3xl font-black bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
+                  {level}
+                </div>
+              </div>
             </div>
-            <div className="text-2xl font-bold">{level}</div>
           </div>
-          
-          <div className="bg-white/10 backdrop-blur rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Star className="w-4 h-4 text-blue-400" />
-              <span className="text-xs text-gray-300">Score</span>
+
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition"></div>
+            <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+                    <Star className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-slate-400 text-sm font-medium">POINTS</span>
+                </div>
+                <div className="text-2xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                  {score.toLocaleString()}
+                </div>
+              </div>
             </div>
-            <div className="text-2xl font-bold">{score.toLocaleString()}</div>
           </div>
-          
-          <div className="bg-white/10 backdrop-blur rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Zap className="w-4 h-4 text-yellow-400" />
-              <span className="text-xs text-gray-300">Power</span>
+
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition"></div>
+            <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-slate-400 text-sm font-medium">POWER</span>
+                </div>
+                <div className="text-3xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  ×{tapPower.toFixed(1)}
+                </div>
+              </div>
             </div>
-            <div className="text-2xl font-bold">x{tapPower.toFixed(1)}</div>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-4 bg-white/10 backdrop-blur rounded-lg p-4">
-          <div className="flex justify-between mb-2">
-            <span className="text-sm">Level {level} → {level + 1}</span>
-            <span className="text-sm">{score} / {requiredScore}</span>
-          </div>
-          <div className="h-3 bg-black/30 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
-              style={{ width: `${Math.min(progress, 100)}%` }}
-            />
+        <div className="mb-6">
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+            <div className="flex justify-between mb-3">
+              <span className="text-sm font-semibold text-slate-300">LEVEL {level} → {level + 1}</span>
+              <span className="text-sm font-mono text-cyan-400">{score} / {requiredScore}</span>
+            </div>
+            <div className="h-4 bg-slate-800/80 rounded-full overflow-hidden border border-slate-700/50">
+              <div 
+                className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-500 relative overflow-hidden"
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Energy Bar */}
-        <div className="mt-4 bg-white/10 backdrop-blur rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Battery className="w-4 h-4 text-green-400" />
-              <span className="text-sm">Energy</span>
+        <div className="mb-6">
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Battery className={`w-5 h-5 ${energy > 300 ? 'text-emerald-400' : energy > 100 ? 'text-amber-400' : 'text-red-400'}`} />
+                <span className="text-sm font-semibold text-slate-300">ENERGY</span>
+              </div>
+              <span className="text-sm font-mono text-slate-400">{energy} / {MAX_ENERGY}</span>
             </div>
-            <span className="text-sm">{energy} / {MAX_ENERGY}</span>
-          </div>
-          <div className="h-2 bg-black/30 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all"
-              style={{ width: `${(energy / MAX_ENERGY) * 100}%` }}
-            />
+            <div className="h-3 bg-slate-800/80 rounded-full overflow-hidden border border-slate-700/50">
+              <div 
+                className={`h-full transition-all duration-300 ${
+                  energy > 300 ? 'bg-gradient-to-r from-emerald-500 to-green-400' :
+                  energy > 100 ? 'bg-gradient-to-r from-amber-500 to-yellow-400' :
+                  'bg-gradient-to-r from-red-500 to-orange-400'
+                }`}
+                style={{ width: `${(energy / MAX_ENERGY) * 100}%` }}
+              />
+            </div>
           </div>
         </div>
 
         {/* Combo Indicator */}
         {combo > 1 && (
-          <div className="mt-4 bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur rounded-lg p-3 border border-orange-500/50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-orange-400" />
-                <span className="font-bold">COMBO x{combo}</span>
+          <div className="mb-6 animate-pulse">
+            <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-xl rounded-2xl p-4 border border-orange-500/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <TrendingUp className="w-6 h-6 text-orange-400" />
+                  <span className="text-xl font-black text-transparent bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text">
+                    COMBO ×{combo}
+                  </span>
+                </div>
+                <span className="text-sm font-bold text-orange-300">+{((combo * 0.02) * 100).toFixed(0)}% BONUS</span>
               </div>
-              <span className="text-sm text-orange-300">+{((combo * 0.02) * 100).toFixed(0)}% bonus</span>
             </div>
           </div>
         )}
-      </div>
 
-      {/* Main Tap Area */}
-      <div className="max-w-4xl mx-auto mb-6 relative">
-        <div className="relative">
-          <button
-            onClick={handleTap}
-            disabled={energy < tapPower}
-            className="w-full aspect-square max-w-md mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full shadow-2xl transform transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-white/10 rounded-full animate-pulse" />
-            <div className="relative flex items-center justify-center h-full">
-              <Gem className="w-32 h-32 text-white drop-shadow-lg" />
-            </div>
-          </button>
-
-          {/* Click Animations */}
-          {clickAnimation.map(anim => (
-            <div
-              key={anim.id}
-              className="absolute text-2xl font-bold text-yellow-400 pointer-events-none animate-ping"
-              style={{
-                left: anim.x,
-                top: anim.y,
-                animation: 'float 1s ease-out forwards'
-              }}
+        {/* Main Tap Area */}
+        <div className="mb-8 relative">
+          <div className="relative max-w-sm mx-auto">
+            <button
+              onClick={handleTap}
+              disabled={energy < tapPower}
+              className="relative w-full aspect-square bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-full border-4 border-white/10 shadow-2xl transform transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed overflow-hidden group"
             >
-              +{anim.points}
+              {/* Glow effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 via-blue-500/20 to-purple-500/20 rounded-full animate-pulse"></div>
+              
+              {/* Rotating ring */}
+              <div className="absolute inset-4 border-2 border-dashed border-white/20 rounded-full animate-spin-slow"></div>
+              
+              {/* Cloud Icon */}
+              <div className="relative flex items-center justify-center h-full">
+                <div className="relative group-hover:scale-110 transition-transform duration-300">
+                  <Cloud className="w-40 h-40 text-cyan-400 drop-shadow-[0_0_30px_rgba(34,211,238,0.6)]" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Sparkles className="w-16 h-16 text-blue-300 animate-pulse" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Particles */}
+              {particles.map(p => (
+                <div
+                  key={p.id}
+                  className="absolute w-2 h-2 bg-cyan-400 rounded-full animate-ping"
+                  style={{ left: p.x, top: p.y }}
+                />
+              ))}
+            </button>
+
+            {/* Click Animations */}
+            {clickAnimation.map(anim => (
+              <div
+                key={anim.id}
+                className="absolute text-3xl font-black pointer-events-none z-20"
+                style={{
+                  left: anim.x,
+                  top: anim.y,
+                  animation: 'float 1s ease-out forwards'
+                }}
+              >
+                <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">
+                  +{anim.points}
+                </span>
+              </div>
+            ))}
+          </div>
+          
+          <div className="text-center mt-6">
+            {energy < tapPower ? (
+              <p className="text-slate-500 text-sm font-medium">⚡ Recharging energy...</p>
+            ) : (
+              <p className="text-transparent bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-sm font-bold animate-pulse">
+                TAP THE CLOUD
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Artifacts & Checkpoints */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-xl font-black text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text">
+                ARTIFACTS ({artifacts.length})
+              </h3>
             </div>
-          ))}
-        </div>
-        
-        <div className="text-center mt-4 text-gray-400 text-sm">
-          {energy < tapPower ? '⚡ Recharging energy...' : 'Tap to earn!'}
-        </div>
-      </div>
-
-      {/* Artifacts & Checkpoints */}
-      <div className="max-w-4xl mx-auto grid grid-cols-2 gap-4">
-        <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Gem className="w-5 h-5 text-purple-400" />
-            <h3 className="font-bold">Artifacts ({artifacts.length})</h3>
-          </div>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
-            {artifacts.map(art => (
-              <div key={art.id} className="bg-black/30 rounded p-2 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className={getRarityColor(art.rarity)}>
-                    Lvl {art.level} Artifact
-                  </span>
-                  <span className="text-green-400">+{art.boost.toFixed(1)} power</span>
+            <div className="space-y-3 max-h-48 overflow-y-auto custom-scrollbar">
+              {artifacts.map(art => (
+                <div key={art.id} className={`bg-slate-800/50 rounded-xl p-4 border border-white/10 ${getRarityGlow(art.rarity)}`}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className={`text-sm font-black bg-gradient-to-r ${getRarityColor(art.rarity)} bg-clip-text text-transparent uppercase`}>
+                        {art.rarity}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-1">Level {art.level}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-black text-emerald-400">+{art.boost.toFixed(1)}</div>
+                      <div className="text-xs text-slate-400">POWER</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {artifacts.length === 0 && (
-              <div className="text-gray-500 text-center py-4">
-                Reach level 10 to unlock your first artifact!
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Award className="w-5 h-5 text-blue-400" />
-            <h3 className="font-bold">Checkpoints ({checkpoints.length})</h3>
-          </div>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
-            {checkpoints.map((cp, idx) => (
-              <div key={idx} className="bg-black/30 rounded p-2 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-blue-400">Level {cp.level}</span>
-                  <span className="text-xs text-gray-400">On-chain ✓</span>
+              ))}
+              {artifacts.length === 0 && (
+                <div className="text-center py-8 text-slate-500">
+                  <CloudRain className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Reach level 10 to unlock!</p>
                 </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                <Award className="w-5 h-5 text-white" />
               </div>
-            ))}
-            {checkpoints.length === 0 && (
-              <div className="text-gray-500 text-center py-4">
-                Reach level {CHECKPOINT_INTERVAL} to save progress on-chain!
-              </div>
-            )}
+              <h3 className="text-xl font-black text-transparent bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text">
+                CHECKPOINTS ({checkpoints.length})
+              </h3>
+            </div>
+            <div className="space-y-3 max-h-48 overflow-y-auto custom-scrollbar">
+              {checkpoints.map((cp, idx) => (
+                <div key={idx} className="bg-slate-800/50 rounded-xl p-4 border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="text-sm font-black text-blue-400">LEVEL {cp.level}</div>
+                      <div className="text-xs text-slate-400 mt-1">On-chain ✓</div>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                      <Award className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {checkpoints.length === 0 && (
+                <div className="text-center py-8 text-slate-500">
+                  <Award className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Save progress at level {CHECKPOINT_INTERVAL}!</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Artifact Modal */}
       {showArtifactModal && newArtifact && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-purple-900 to-blue-900 rounded-2xl p-8 max-w-md w-full border-2 border-purple-500 shadow-2xl">
-            <div className="text-center">
-              <Gem className="w-20 h-20 mx-auto mb-4 text-purple-400 animate-bounce" />
-              <h2 className="text-3xl font-bold mb-2">Artifact Found!</h2>
-              <div className={`text-xl mb-4 ${getRarityColor(newArtifact.rarity)}`}>
-                {newArtifact.rarity.toUpperCase()}
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className={`bg-gradient-to-br from-slate-900 to-purple-950 rounded-3xl p-8 max-w-md w-full border-2 ${getRarityGlow(newArtifact.rarity)} relative overflow-hidden`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 animate-pulse"></div>
+            <div className="relative text-center">
+              <div className="mb-6">
+                <Sparkles className={`w-24 h-24 mx-auto mb-4 animate-bounce bg-gradient-to-r ${getRarityColor(newArtifact.rarity)} bg-clip-text text-transparent`} />
               </div>
-              <p className="text-gray-300 mb-4">
+              <h2 className="text-4xl font-black mb-3 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                ARTIFACT FOUND!
+              </h2>
+              <div className={`inline-block px-4 py-2 rounded-full bg-gradient-to-r ${getRarityColor(newArtifact.rarity)} mb-4`}>
+                <span className="text-sm font-black text-white uppercase">{newArtifact.rarity}</span>
+              </div>
+              <p className="text-slate-300 mb-6">
                 You've unlocked a Level {newArtifact.level} artifact!
               </p>
-              <div className="bg-black/30 rounded-lg p-4 mb-6">
-                <div className="text-2xl font-bold text-green-400">
-                  +{newArtifact.boost.toFixed(1)} Tap Power
+              <div className="bg-slate-800/80 backdrop-blur rounded-2xl p-6 mb-6 border border-white/10">
+                <div className="text-4xl font-black text-transparent bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text mb-2">
+                  +{newArtifact.boost.toFixed(1)}
                 </div>
-                <div className="text-sm text-gray-400 mt-1">Permanent Boost</div>
+                <div className="text-sm text-slate-400 uppercase tracking-wider">Tap Power Boost</div>
               </div>
               <button
                 onClick={() => {
                   setShowArtifactModal(false);
-                  // Here would be the NFT minting transaction
                   alert('🎨 Free NFT mint transaction sent! (Gas-free on Base)');
                 }}
-                className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold py-3 rounded-lg hover:from-purple-600 hover:to-blue-600 transition"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-black py-4 rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-[0_0_30px_rgba(168,85,247,0.4)]"
               >
-                Mint NFT (Free)
+                MINT NFT (FREE)
               </button>
             </div>
           </div>
@@ -323,30 +442,35 @@ const BaseClicker = () => {
 
       {/* Checkpoint Modal */}
       {showCheckpointModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-blue-900 to-cyan-900 rounded-2xl p-8 max-w-md w-full border-2 border-blue-500 shadow-2xl">
-            <div className="text-center">
-              <Award className="w-20 h-20 mx-auto mb-4 text-blue-400" />
-              <h2 className="text-3xl font-bold mb-2">Checkpoint Reached!</h2>
-              <p className="text-gray-300 mb-4">
-                Level {level} - Save your progress on Base blockchain
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-gradient-to-br from-slate-900 to-blue-950 rounded-3xl p-8 max-w-md w-full border-2 border-blue-500/50 shadow-[0_0_50px_rgba(59,130,246,0.4)] relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 animate-pulse"></div>
+            <div className="relative text-center">
+              <Award className="w-24 h-24 mx-auto mb-4 text-blue-400" />
+              <h2 className="text-4xl font-black mb-3 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                CHECKPOINT!
+              </h2>
+              <p className="text-slate-300 mb-6">
+                Level {level} - Save your progress on Base
               </p>
-              <div className="bg-black/30 rounded-lg p-4 mb-6">
-                <div className="text-sm text-gray-400">Estimated Gas</div>
-                <div className="text-2xl font-bold text-green-400">~$0.01</div>
+              <div className="bg-slate-800/80 backdrop-blur rounded-2xl p-6 mb-6 border border-white/10">
+                <div className="text-sm text-slate-400 mb-2 uppercase tracking-wider">Estimated Gas</div>
+                <div className="text-4xl font-black text-transparent bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text">
+                  ~$0.01
+                </div>
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCheckpointModal(false)}
-                  className="flex-1 bg-gray-700 text-white font-bold py-3 rounded-lg hover:bg-gray-600 transition"
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-2xl transition-all duration-300"
                 >
-                  Skip
+                  SKIP
                 </button>
                 <button
                   onClick={mintCheckpoint}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold py-3 rounded-lg hover:from-blue-600 hover:to-cyan-600 transition"
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-black py-4 rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-[0_0_30px_rgba(59,130,246,0.4)]"
                 >
-                  Mint Badge
+                  MINT BADGE
                 </button>
               </div>
             </div>
@@ -358,12 +482,71 @@ const BaseClicker = () => {
         @keyframes float {
           0% {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
           }
           100% {
             opacity: 0;
-            transform: translateY(-100px);
+            transform: translateY(-120px) scale(1.5);
           }
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
+        @keyframes spin-slow {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
+        }
+
+        .animate-spin-slow {
+          animation: spin-slow 20s linear infinite;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: linear-gradient(to bottom, #60a5fa, #3b82f6);
+          border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(to bottom, #3b82f6, #2563eb);
         }
       `}</style>
     </div>

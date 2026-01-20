@@ -1,0 +1,373 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Zap, Trophy, Gem, Star, TrendingUp, Battery, Award } from 'lucide-react';
+
+const ARTIFACT_LEVELS = [10, 20, 50, 100];
+const CHECKPOINT_INTERVAL = 5;
+const MAX_ENERGY = 1000;
+const ENERGY_RECHARGE_RATE = 1; // per second
+const COMBO_TIMEOUT = 1000; // ms
+
+const BaseClicker = () => {
+  const [score, setScore] = useState(0);
+  const [level, setLevel] = useState(1);
+  const [energy, setEnergy] = useState(MAX_ENERGY);
+  const [tapPower, setTapPower] = useState(1);
+  const [artifacts, setArtifacts] = useState([]);
+  const [checkpoints, setCheckpoints] = useState([]);
+  const [combo, setCombo] = useState(0);
+  const [lastTapTime, setLastTapTime] = useState(0);
+  const [showArtifactModal, setShowArtifactModal] = useState(false);
+  const [newArtifact, setNewArtifact] = useState(null);
+  const [showCheckpointModal, setShowCheckpointModal] = useState(false);
+  const [clickAnimation, setClickAnimation] = useState([]);
+
+  // Calculate required score for next level
+  const getRequiredScore = (lvl) => Math.floor(100 * Math.pow(1.5, lvl - 1));
+  const requiredScore = getRequiredScore(level);
+  const progress = (score / requiredScore) * 100;
+
+  // Energy recharge
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setEnergy(prev => Math.min(prev + ENERGY_RECHARGE_RATE, MAX_ENERGY));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Combo reset
+  useEffect(() => {
+    if (combo > 0) {
+      const timeout = setTimeout(() => {
+        setCombo(0);
+      }, COMBO_TIMEOUT);
+      return () => clearTimeout(timeout);
+    }
+  }, [combo, lastTapTime]);
+
+  // Level up check
+  useEffect(() => {
+    if (score >= requiredScore) {
+      const newLevel = level + 1;
+      setLevel(newLevel);
+      setScore(score - requiredScore);
+
+      // Check for artifact
+      if (ARTIFACT_LEVELS.includes(newLevel)) {
+        const artifact = {
+          level: newLevel,
+          id: artifacts.length + 1,
+          boost: newLevel / 10,
+          rarity: newLevel >= 100 ? 'legendary' : newLevel >= 50 ? 'epic' : newLevel >= 20 ? 'rare' : 'uncommon'
+        };
+        setArtifacts([...artifacts, artifact]);
+        setNewArtifact(artifact);
+        setShowArtifactModal(true);
+        setTapPower(prev => prev + artifact.boost);
+      }
+
+      // Check for checkpoint
+      if (newLevel % CHECKPOINT_INTERVAL === 0) {
+        setShowCheckpointModal(true);
+      }
+    }
+  }, [score]);
+
+  const handleTap = (e) => {
+    if (energy < tapPower) return;
+
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapTime;
+    
+    // Combo system
+    let comboMultiplier = 1;
+    if (timeSinceLastTap < COMBO_TIMEOUT) {
+      const newCombo = combo + 1;
+      setCombo(newCombo);
+      comboMultiplier = 1 + (Math.min(newCombo, 50) * 0.02); // Max 2x at 50 combo
+    } else {
+      setCombo(1);
+    }
+    
+    setLastTapTime(now);
+
+    const earnedPoints = Math.floor(tapPower * comboMultiplier);
+    setScore(prev => prev + earnedPoints);
+    setEnergy(prev => prev - tapPower);
+
+    // Click animation
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const id = Date.now();
+    
+    setClickAnimation(prev => [...prev, { id, x, y, points: earnedPoints }]);
+    setTimeout(() => {
+      setClickAnimation(prev => prev.filter(anim => anim.id !== id));
+    }, 1000);
+  };
+
+  const mintCheckpoint = () => {
+    const checkpoint = {
+      level,
+      timestamp: Date.now(),
+      score: score
+    };
+    setCheckpoints([...checkpoints, checkpoint]);
+    setShowCheckpointModal(false);
+    // Here would be the actual blockchain transaction
+    alert('🎉 Checkpoint minted on Base! (Gas: ~$0.01)');
+  };
+
+  const getRarityColor = (rarity) => {
+    const colors = {
+      uncommon: 'text-green-400',
+      rare: 'text-blue-400',
+      epic: 'text-purple-400',
+      legendary: 'text-yellow-400'
+    };
+    return colors[rarity] || 'text-gray-400';
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-black text-white p-4">
+      {/* Header Stats */}
+      <div className="max-w-4xl mx-auto mb-6">
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white/10 backdrop-blur rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Trophy className="w-4 h-4 text-yellow-400" />
+              <span className="text-xs text-gray-300">Level</span>
+            </div>
+            <div className="text-2xl font-bold">{level}</div>
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Star className="w-4 h-4 text-blue-400" />
+              <span className="text-xs text-gray-300">Score</span>
+            </div>
+            <div className="text-2xl font-bold">{score.toLocaleString()}</div>
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Zap className="w-4 h-4 text-yellow-400" />
+              <span className="text-xs text-gray-300">Power</span>
+            </div>
+            <div className="text-2xl font-bold">x{tapPower.toFixed(1)}</div>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mt-4 bg-white/10 backdrop-blur rounded-lg p-4">
+          <div className="flex justify-between mb-2">
+            <span className="text-sm">Level {level} → {level + 1}</span>
+            <span className="text-sm">{score} / {requiredScore}</span>
+          </div>
+          <div className="h-3 bg-black/30 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Energy Bar */}
+        <div className="mt-4 bg-white/10 backdrop-blur rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Battery className="w-4 h-4 text-green-400" />
+              <span className="text-sm">Energy</span>
+            </div>
+            <span className="text-sm">{energy} / {MAX_ENERGY}</span>
+          </div>
+          <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all"
+              style={{ width: `${(energy / MAX_ENERGY) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Combo Indicator */}
+        {combo > 1 && (
+          <div className="mt-4 bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur rounded-lg p-3 border border-orange-500/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-orange-400" />
+                <span className="font-bold">COMBO x{combo}</span>
+              </div>
+              <span className="text-sm text-orange-300">+{((combo * 0.02) * 100).toFixed(0)}% bonus</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Tap Area */}
+      <div className="max-w-4xl mx-auto mb-6 relative">
+        <div className="relative">
+          <button
+            onClick={handleTap}
+            disabled={energy < tapPower}
+            className="w-full aspect-square max-w-md mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full shadow-2xl transform transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-white/10 rounded-full animate-pulse" />
+            <div className="relative flex items-center justify-center h-full">
+              <Gem className="w-32 h-32 text-white drop-shadow-lg" />
+            </div>
+          </button>
+
+          {/* Click Animations */}
+          {clickAnimation.map(anim => (
+            <div
+              key={anim.id}
+              className="absolute text-2xl font-bold text-yellow-400 pointer-events-none animate-ping"
+              style={{
+                left: anim.x,
+                top: anim.y,
+                animation: 'float 1s ease-out forwards'
+              }}
+            >
+              +{anim.points}
+            </div>
+          ))}
+        </div>
+        
+        <div className="text-center mt-4 text-gray-400 text-sm">
+          {energy < tapPower ? '⚡ Recharging energy...' : 'Tap to earn!'}
+        </div>
+      </div>
+
+      {/* Artifacts & Checkpoints */}
+      <div className="max-w-4xl mx-auto grid grid-cols-2 gap-4">
+        <div className="bg-white/10 backdrop-blur rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Gem className="w-5 h-5 text-purple-400" />
+            <h3 className="font-bold">Artifacts ({artifacts.length})</h3>
+          </div>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {artifacts.map(art => (
+              <div key={art.id} className="bg-black/30 rounded p-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className={getRarityColor(art.rarity)}>
+                    Lvl {art.level} Artifact
+                  </span>
+                  <span className="text-green-400">+{art.boost.toFixed(1)} power</span>
+                </div>
+              </div>
+            ))}
+            {artifacts.length === 0 && (
+              <div className="text-gray-500 text-center py-4">
+                Reach level 10 to unlock your first artifact!
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Award className="w-5 h-5 text-blue-400" />
+            <h3 className="font-bold">Checkpoints ({checkpoints.length})</h3>
+          </div>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {checkpoints.map((cp, idx) => (
+              <div key={idx} className="bg-black/30 rounded p-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-400">Level {cp.level}</span>
+                  <span className="text-xs text-gray-400">On-chain ✓</span>
+                </div>
+              </div>
+            ))}
+            {checkpoints.length === 0 && (
+              <div className="text-gray-500 text-center py-4">
+                Reach level {CHECKPOINT_INTERVAL} to save progress on-chain!
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Artifact Modal */}
+      {showArtifactModal && newArtifact && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-purple-900 to-blue-900 rounded-2xl p-8 max-w-md w-full border-2 border-purple-500 shadow-2xl">
+            <div className="text-center">
+              <Gem className="w-20 h-20 mx-auto mb-4 text-purple-400 animate-bounce" />
+              <h2 className="text-3xl font-bold mb-2">Artifact Found!</h2>
+              <div className={`text-xl mb-4 ${getRarityColor(newArtifact.rarity)}`}>
+                {newArtifact.rarity.toUpperCase()}
+              </div>
+              <p className="text-gray-300 mb-4">
+                You've unlocked a Level {newArtifact.level} artifact!
+              </p>
+              <div className="bg-black/30 rounded-lg p-4 mb-6">
+                <div className="text-2xl font-bold text-green-400">
+                  +{newArtifact.boost.toFixed(1)} Tap Power
+                </div>
+                <div className="text-sm text-gray-400 mt-1">Permanent Boost</div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowArtifactModal(false);
+                  // Here would be the NFT minting transaction
+                  alert('🎨 Free NFT mint transaction sent! (Gas-free on Base)');
+                }}
+                className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold py-3 rounded-lg hover:from-purple-600 hover:to-blue-600 transition"
+              >
+                Mint NFT (Free)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Checkpoint Modal */}
+      {showCheckpointModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-blue-900 to-cyan-900 rounded-2xl p-8 max-w-md w-full border-2 border-blue-500 shadow-2xl">
+            <div className="text-center">
+              <Award className="w-20 h-20 mx-auto mb-4 text-blue-400" />
+              <h2 className="text-3xl font-bold mb-2">Checkpoint Reached!</h2>
+              <p className="text-gray-300 mb-4">
+                Level {level} - Save your progress on Base blockchain
+              </p>
+              <div className="bg-black/30 rounded-lg p-4 mb-6">
+                <div className="text-sm text-gray-400">Estimated Gas</div>
+                <div className="text-2xl font-bold text-green-400">~$0.01</div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCheckpointModal(false)}
+                  className="flex-1 bg-gray-700 text-white font-bold py-3 rounded-lg hover:bg-gray-600 transition"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={mintCheckpoint}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold py-3 rounded-lg hover:from-blue-600 hover:to-cyan-600 transition"
+                >
+                  Mint Badge
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes float {
+          0% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-100px);
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default BaseClicker;
